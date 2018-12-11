@@ -84,7 +84,7 @@ Sub CalcParas()
         rowCurr = 3    '每个工况开始，行指针重新开始
         For j = 0 To 2 '
             If j = 0 Then
-                Cells(rowCurr, 2 * (i + 1)) = 0
+                Cells(rowCurr, 2 * (i + 1)) = 1
             ElseIf j = 1 Then
                 Cells(rowCurr, 2 * (i + 1)) = 0
             ElseIf j = 2 Then
