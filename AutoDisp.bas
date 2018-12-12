@@ -4,6 +4,7 @@ Const First_Row As Integer = 8     '起始数据行数
 Const WC_Col As Integer = 1     '工况所在列数
 Const MAX_NWC As Integer = 10     '最大工况数
 
+Const Node_Name_Col As Integer = 2  '测点编号所在列
 Dim TotalDispCol As Integer    '总变形所在列
 Dim DeltaCol As Integer   '增量所在列
 Dim RemainDispCol As Integer    '残余变形所在列
@@ -13,12 +14,16 @@ Dim RefRemainDispCol As Integer    '相对残余变形所在列
 
 Dim nWCs As Integer    '工况数
 Dim TotalDisp(1 To MAX_NWC, 1 To 100)   'TotalDisp(i,j)表示第i个工况，第j个测点总变形
-Dim Delta
-Dim RemainDisp
-Dim ElasticDisp
-Dim CheckoutCoff
-Dim RefRemainDisp
-Dim DispUbound(1 To MAX_NWC) As Integer
+Dim NodeName(1 To MAX_NWC, 1 To 100) As String  '各个工况测点名称
+Dim Delta(1 To MAX_NWC, 1 To 100)
+Dim RemainDisp(1 To MAX_NWC, 1 To 100)
+Dim ElasticDisp(1 To MAX_NWC, 1 To 100)
+Dim CheckoutCoff(1 To MAX_NWC, 1 To 100)
+Dim RefRemainDisp(1 To MAX_NWC, 1 To 100)
+Dim DispUbound(1 To MAX_NWC) As Integer    '每个工况上界（下界为1）
+
+Dim StatPara(1 To MAX_NWC, 1 To 3)  '统计参数,最小校验系数，最大校验系数，最大相对残余应变
+'StatPara(i,1~3)分别表示第i个工况最小校验系数，最大校验系数，最大相对残余应变
 
 Dim t
 
@@ -30,6 +35,7 @@ Public Sub InitVar()
         DispUbound(i) = Cells(2, 2 * i)
     Next
     
+
     TotalDispCol = 5
     DeltaCol = 7
     RemainDispCol = 8
@@ -45,22 +51,67 @@ Private Sub AutoDisp_Click()
     
     Dim rowCurr As Integer    '行指针
     
-
-    
+    Dim i, j As Integer
     rowCurr = First_Row
-    While Cells(rowCurr, 1) <> ""
-        Cells(rowCurr, TotalDispCol) = Cells(rowCurr, TotalDispCol - 1) - Cells(rowCurr, TotalDispCol - 2)
-        Cells(rowCurr, DeltaCol) = Cells(rowCurr, DeltaCol - 1) - Cells(rowCurr, DeltaCol - 3)
+    For i = 1 To nWCs
+        For j = 1 To DispUbound(i)
         
-        '算法：卸载与满载读数差值>=0，取卸载与满载读数差值，否则取0
-        Cells(rowCurr, RemainDispCol) = IIf(Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5) >= 0, Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5), 0)
+            NodeName(i, j) = Cells(rowCurr, Node_Name_Col)
+                               
+            TotalDisp(i, j) = Cells(rowCurr, TotalDispCol - 1) - Cells(rowCurr, TotalDispCol - 2)    '总变形
+            Cells(rowCurr, TotalDispCol) = TotalDisp(i, j)
+            
+            Cells(rowCurr, DeltaCol) = Cells(rowCurr, DeltaCol - 1) - Cells(rowCurr, DeltaCol - 3)   '增量
+            '增量不存储
+            
+            '算法：卸载与满载读数差值>=0，取卸载与满载读数差值，否则取0
+            RemainDisp(i, j) = IIf(Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5) >= 0, Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5), 0)
+            Cells(rowCurr, RemainDispCol) = RemainDisp(i, j)    '残余变形
+            
+            ElasticDisp(i, j) = Cells(rowCurr, ElasticCol - 4) - Cells(rowCurr, ElasticCol - 1)
+            Cells(rowCurr, ElasticCol) = ElasticDisp(i, j)    '弹性变形
+             
+            CheckoutCoff(i, j) = Cells(rowCurr, CheckoutCoffCol - 2) / Cells(rowCurr, CheckoutCoffCol - 1)
+            Cells(rowCurr, CheckoutCoffCol) = CheckoutCoff(i, j)    '校验系数
+             
+            RefRemainDisp(i, j) = Cells(rowCurr, RefRemainDispCol - 4) / Cells(rowCurr, RefRemainDispCol - 7)
+            Cells(rowCurr, RefRemainDispCol) = RefRemainDisp(i, j)    '相对残余变形
+            
+            rowCurr = rowCurr + 1
+        Next
+    Next
+    
+    '计算各个工况最小/大校验系数，最大相对残余变形
+    For i = 1 To nWCs
+        StatPara(i, 1) = CheckoutCoff(i, 1): StatPara(i, 2) = CheckoutCoff(i, 1): StatPara(i, 3) = RefRemainDisp(i, 1)
+        For j = 1 To DispUbound(i)
+            If (CheckoutCoff(i, j) < StatPara(i, 1)) Then
+                StatPara(i, 1) = CheckoutCoff(i, j)
+            End If
+            If (CheckoutCoff(i, j) > StatPara(i, 2)) Then
+                StatPara(i, 2) = CheckoutCoff(i, j)
+            End If
+            If (RefRemainDisp(i, j) > StatPara(i, 3)) Then
+                StatPara(i, 3) = RefRemainDisp(i, j)
+            End If
+        Next
         
-        Cells(rowCurr, ElasticCol) = Cells(rowCurr, ElasticCol - 4) - Cells(rowCurr, ElasticCol - 1)
-        Cells(rowCurr, CheckoutCoffCol) = Cells(rowCurr, CheckoutCoffCol - 2) / Cells(rowCurr, CheckoutCoffCol - 1)
-        Cells(rowCurr, RefRemainDispCol) = Cells(rowCurr, RefRemainDisp - 4) / Cells(rowCurr, RefRemainDispCol - 7)
-        
-        rowCurr = rowCurr + 1
-    Wend
+        '数据写入Excel
+        Cells(3, 2 * i) = Format(StatPara(i, 1), "Fixed"): Cells(4, 2 * i) = Format(StatPara(i, 2), "Fixed"): Cells(5, 2 * i) = Format(StatPara(i, 3), "Percent")
+    Next
+'    While Cells(rowCurr, 1) <> ""
+'        Cells(rowCurr, TotalDispCol) = Cells(rowCurr, TotalDispCol - 1) - Cells(rowCurr, TotalDispCol - 2)
+'        Cells(rowCurr, DeltaCol) = Cells(rowCurr, DeltaCol - 1) - Cells(rowCurr, DeltaCol - 3)
+'
+'        算法：卸载与满载读数差值>=0，取卸载与满载读数差值，否则取0
+'        Cells(rowCurr, RemainDispCol) = IIf(Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5) >= 0, Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5), 0)
+'
+'        Cells(rowCurr, ElasticCol) = Cells(rowCurr, ElasticCol - 4) - Cells(rowCurr, ElasticCol - 1)
+'        Cells(rowCurr, CheckoutCoffCol) = Cells(rowCurr, CheckoutCoffCol - 2) / Cells(rowCurr, CheckoutCoffCol - 1)
+'        Cells(rowCurr, RefRemainDispCol) = Cells(rowCurr, RefRemainDisp - 4) / Cells(rowCurr, RefRemainDispCol - 7)
+'
+'        rowCurr = rowCurr + 1
+'    Wend
 
  
 End Sub
@@ -84,7 +135,7 @@ Sub CalcParas()
         rowCurr = 3    '每个工况开始，行指针重新开始
         For j = 0 To 2 '
             If j = 0 Then
-                Cells(rowCurr, 2 * (i + 1)) = 1
+                Cells(rowCurr, 2 * (i + 1)) = 0
             ElseIf j = 1 Then
                 Cells(rowCurr, 2 * (i + 1)) = 0
             ElseIf j = 2 Then
@@ -122,7 +173,7 @@ Private Sub GenerateRows_Click()
     
  
 End Sub
-Sub test()
+Sub GenerateWordReport()
     Dim wCondition(100)   '例：wCondition(0)='一',wCondition(1)='二'
     Dim wPointer As Integer
     
