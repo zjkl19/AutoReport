@@ -1,8 +1,9 @@
 Attribute VB_Name = "AutoDisp"
 Option Explicit
-Const First_Row As Integer = 8     '起始数据行数
+Private Const First_Row As Integer = 8     '起始数据行数
 Const WC_Col As Integer = 1     '工况所在列数
-Const MAX_NWC As Integer = 10     '最大工况数
+Public Const MAX_NWC As Integer = 10     '最大工况数
+Public Const MAX_NPS As Integer = 100     '每个工况最大测点数
 
 Const Node_Name_Col As Integer = 2  '测点编号所在列
 Const TheoryDisp_Col As Integer = 10  '理论位移所在列
@@ -14,12 +15,12 @@ Dim CheckoutCoffCol As Integer    '校验系数所在列
 Dim RefRemainDispCol As Integer    '相对残余变形所在列
 
 Dim nWCs As Integer    '工况数
-Dim nPN    '各个工况对应中文名称
+Public nPN    '各个工况对应中文名称
 'nPN = Array("一", "二", "三", "四", "五", "六", "七", "八", "九", "十")
 
 Dim TotalDisp(1 To MAX_NWC, 1 To 100)   'TotalDisp(i,j)表示第i个工况，第j个测点总变形
 Dim NodeName(1 To MAX_NWC, 1 To 100) As String  '各个工况测点名称
-Dim Delta(1 To MAX_NWC, 1 To 100)
+Dim Delta(1 To MAX_NWC, 1 To 100)    '增量，备用变量
 Dim RemainDisp(1 To MAX_NWC, 1 To 100)
 Dim ElasticDisp(1 To MAX_NWC, 1 To 100)
 Dim TheoryDisp(1 To MAX_NWC, 1 To 100)
@@ -198,7 +199,7 @@ Sub AutoWordDisp()
         dispTblBookmarks(i) = Replace("dispTable" & Str(i), " ", "")
     Next
 
-        Dim tbl As Table
+    Dim tbl As Table
 
     
     Set wordApp = CreateObject("Word.Application")
@@ -217,7 +218,7 @@ Sub AutoWordDisp()
         & "满足《公路桥梁承载能力检测评定规程》中规定的残余变形限值要求(限值20%)，恢复状况良好。"
         
         wordApp.ActiveDocument.Variables(dispSummaryVar(i - 1)).value = dispSummary(i)
-        wordApp.ActiveDocument.Fields.Update
+        
         
         '插入表格
         
@@ -248,25 +249,7 @@ Sub AutoWordDisp()
             End With
         End With
     Next i
-    
-    'Dim TotalDisp(1 To MAX_NWC, 1 To 100)   'TotalDisp(i,j)表示第i个工况，第j个测点总变形
-    
-    'Dim NodeName(1 To MAX_NWC, 1 To 100) As String  '各个工况测点名称
-    'Dim Delta(1 To MAX_NWC, 1 To 100)
-    'Dim RemainDisp(1 To MAX_NWC, 1 To 100)
-    'Dim ElasticDisp(1 To MAX_NWC, 1 To 100)
-    'Dim CheckoutCoff(1 To MAX_NWC, 1 To 100)
-    'Dim RefRemainDisp(1 To MAX_NWC, 1 To 100)
-    'Dim DispUbound(1 To MAX_NWC) As Integer    '每个工况上界（下界为1）
-    '
-    'Dim StatPara(1 To MAX_NWC, 1 To 3)  '统计参数,最小校验系数，最大校验系数，最大相对残余应变
-    ''StatPara(i,1~3)分别表示第i个工况最小校验系数，最大校验系数，最大相对残余应变
-    '
-    'Dim t
-    
-
-    
-
+    wordApp.ActiveDocument.Fields.Update
 
     '测试可行，在书签后插入文字
     'wordApp.ActiveDocument.Bookmarks("dispSummary1").Range.InsertAfter "111"
@@ -275,22 +258,7 @@ Sub AutoWordDisp()
     '测试插入表格可行
     'wordApp.ActiveDocument.Tables.Add wordApp.ActiveDocument.Bookmarks("dispSummary1").Range, NumRows:=14 + 1, NumColumns:=7
     
-    'Debug.Print wordApp.ActiveDocument.Variables("tb1").value
-    
-    
-    'wordApp.Selection.Paste    '将剪贴板的内容粘帖到"Select"的部分
-    
-'        Dim bk
-'        For Each bk In wordApp.ActiveDocument.Bookmarks
-'            bk.Delete
-'        Next
-'
-'        Dim oFld
-'        For Each oFld In ActiveDocument.Fields
-'            If oFld.Type = wdFieldDocVariable Then
-'                 oFld.Update
-'            End If
-'        Next oFld
+
     wordApp.Documents.Save
     
     wordApp.ActiveDocument.SaveAs2 ThisWorkbook.Path & "\AutoReportResult.docx"
