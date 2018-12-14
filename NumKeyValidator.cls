@@ -12,4 +12,3 @@ Option Explicit
 Public Function IsValidKey(ByVal keyAscii As Integer, ByVal value As String) As Boolean
     IsValidKey = keyAscii >= KeyCodeConstants.vbKey0 And keyAscii <= KeyCodeConstants.vbKey9
 End Function
-

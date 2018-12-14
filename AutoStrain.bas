@@ -8,8 +8,6 @@ Private Const e4 As Integer = 6  '满载温度
 Private Const e5 As Integer = 7  '卸载模数
 Private Const e6 As Integer = 8  '卸载温度
 
-
-
 Dim c1 As Integer    '满载模数计算（所在列，以下略）
 Dim c2 As Integer    '满载温度计算
 Dim c3 As Integer    '满载应变
@@ -25,19 +23,24 @@ Dim d4 As Integer    '满载理论值
 Dim d5 As Integer    '校验系数
 Dim d6 As Integer    '相对残余应变
 
-Private Const First_Row As Integer = 10     '起始数据行数
+Private Const First_Row As Integer = 13    '起始数据行数
+Private Const StrainStatPara1_Row As Integer = 4
+Private Const StrainStatPara2_Row As Integer = 5
+Private Const StrainStatPara3_Row As Integer = 6
+
 Const StrainNode_Name_Col As Integer = 2  '测点编号所在列
 
-Dim StrainNodeName(1 To MAX_NWC, 1 To MAX_NPS) As String  '各个工况测点名称
+Public StrainGlobalWC(1 To MAX_NWC)    '全局工况定位数组
 
-Dim TotalStrain(1 To MAX_NWC, 1 To MAX_NPS)    '满载应变
-Dim RemainStrain(1 To MAX_NWC, 1 To MAX_NPS)    '残余应变（残余应变）
-Dim ElasticStrain(1 To MAX_NWC, 1 To MAX_NPS)
-Dim TheoryStrain(1 To MAX_NWC, 1 To MAX_NPS)
-Dim StrainCheckoutCoff(1 To MAX_NWC, 1 To MAX_NPS)
-Dim RefRemainStrain(1 To MAX_NWC, 1 To MAX_NPS)
+Public StrainNodeName(1 To MAX_NWC, 1 To MAX_NPS) As String  '各个工况测点名称
+Public TotalStrain(1 To MAX_NWC, 1 To MAX_NPS)    '满载应变
+Public RemainStrain(1 To MAX_NWC, 1 To MAX_NPS)    '残余应变（残余应变）
+Public ElasticStrain(1 To MAX_NWC, 1 To MAX_NPS)
+Public TheoryStrain(1 To MAX_NWC, 1 To MAX_NPS)
+Public StrainCheckoutCoff(1 To MAX_NWC, 1 To MAX_NPS)
+Public RefRemainStrain(1 To MAX_NWC, 1 To MAX_NPS)
 
-Dim StrainStatPara(1 To MAX_NWC, 1 To 3)  '统计参数,最小校验系数，最大校验系数，最大相对残余应变
+Public StrainStatPara(1 To MAX_NWC, 1 To 3)  '统计参数,最小校验系数，最大校验系数，最大相对残余应变
 
 Private Const TotalStrain_Col As Integer = 27
 Private Const RemainStrain_Col As Integer = 29
@@ -46,26 +49,29 @@ Private Const TheoryStrain_Col As Integer = 30
 Private Const StrainCheckoutCoff_Col As Integer = 31
 Private Const RefRemainStrain_Col As Integer = 32
 
-Dim StrainUbound(1 To MAX_NWC) As Integer    '每个工况上界（下界为1）
-Dim nWCs As Integer    '工况数
-Dim nPs(10) As Integer    '各个工况测点数
+Public StrainUbound(1 To MAX_NWC) As Integer    '每个工况上界（下界为1）
+Public StrainNWCs As Integer    '应变工况数
+Public StrainNPs(10) As Integer    '各个工况测点数
 Public Sub InitStrainVar()
     Dim i As Integer
     
-    nWCs = Cells(1, 2)
-    For i = 1 To nWCs
+    StrainNWCs = Cells(1, 2)
+    For i = 1 To StrainNWCs
         StrainUbound(i) = Cells(2, 2 * i)
     Next
  
+    For i = 1 To StrainNWCs
+        StrainGlobalWC(i) = Cells(3, 2 * i)
+    Next
 End Sub
 '生成应变表格的行
 Private Sub GenerateStrainRows_Click()
 
-    nWCs = Cells(1, 2)
+    StrainNWCs = Cells(1, 2)
     
     Dim i As Integer
-    For i = 0 To nWCs - 1    '每个工况测点数
-        nPs(i) = Cells(2, 2 * (i + 1))
+    For i = 0 To StrainNWCs - 1    '每个工况测点数
+        StrainNPs(i) = Cells(2, 2 * (i + 1))
     Next
    
     Dim rowCurr As Integer    '行指针
@@ -73,11 +79,13 @@ Private Sub GenerateStrainRows_Click()
     
     Dim ds As DeformService
     Set ds = New DeformService
-    ds.GenerateRows nWCs, nPs, rowCurr, 1
+    ds.GenerateRows StrainNWCs, StrainNPs, rowCurr, 1
     Set ds = Nothing
  
 End Sub
 
+'计算应变
+'r2:变化后模数，r1:变化前模数，t2:变化后温度，t1：变化前温度
 Public Function GetStrain(ByVal r2, ByVal r1, ByVal t2, ByVal t1)
     Dim G, K, C
     G = 3.7: K = 1.8: C = 1.020019
@@ -85,7 +93,7 @@ Public Function GetStrain(ByVal r2, ByVal r1, ByVal t2, ByVal t1)
 End Function
 
 '自动计算应变
-Private Sub AutoStrain_Click()
+Public Sub AutoStrain_Click()
 
     InitStrainVar
     
@@ -94,7 +102,7 @@ Private Sub AutoStrain_Click()
     Dim rowCurr As Integer    '行指针
     rowCurr = First_Row
     
-    For i = 1 To nWCs
+    For i = 1 To StrainNWCs
         For j = 1 To StrainUbound(i)
         
             StrainNodeName(i, j) = Cells(rowCurr, StrainNode_Name_Col)
@@ -123,7 +131,7 @@ Private Sub AutoStrain_Click()
     Next
     
     '计算各个工况最小/大校验系数，最大相对残余应变
-    For i = 1 To nWCs
+    For i = 1 To StrainNWCs
         StrainStatPara(i, 1) = StrainCheckoutCoff(i, 1): StrainStatPara(i, 2) = StrainCheckoutCoff(i, 1): StrainStatPara(i, 3) = RefRemainStrain(i, 1)
         For j = 1 To StrainUbound(i)
             If (StrainCheckoutCoff(i, j) < StrainStatPara(i, 1)) Then
@@ -138,23 +146,8 @@ Private Sub AutoStrain_Click()
         Next
 
         '数据写入Excel
-        Cells(3, 2 * i) = Format(StrainStatPara(i, 1), "Fixed"): Cells(4, 2 * i) = Format(StrainStatPara(i, 2), "Fixed"): Cells(5, 2 * i) = Format(StrainStatPara(i, 3), "Percent")
+        Cells(StrainStatPara1_Row, 2 * i) = Format(StrainStatPara(i, 1), "Fixed"): Cells(StrainStatPara2_Row, 2 * i) = Format(StrainStatPara(i, 2), "Fixed"): Cells(StrainStatPara3_Row, 2 * i) = Format(StrainStatPara(i, 3), "Percent")
     Next
  
 End Sub
-Sub AutoStrain_test()
 
-    Dim rowCurr As Integer    '行指针
-    FirstRow = 10
-    
-    c1 = 14: c2 = 15: c3 = 16: c4 = 17: c5 = 18: c6 = 19: c7 = 20
-    
-    
-    rowCurr = FirstRow
-    
-    While Cells(rowCurr, 1) <> ""
-        Cells(rowCurr, TotalDispCol) = Cells(rowCurr, TotalDispCol - 1) - Cells(rowCurr, TotalDispCol - 2)
-        rowCurr = rowCurr + 1
-    Wend
-   
-End Sub
