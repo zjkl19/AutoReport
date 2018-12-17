@@ -1,14 +1,19 @@
 Attribute VB_Name = "AutoDisp"
 Option Explicit
-
-Private Const First_Row As Integer = 11     '起始数据行数
-Private Const StatPara1_Row As Integer = 4
-Private Const StatPara2_Row As Integer = 5
-Private Const StatPara3_Row As Integer = 6
-
 Const WC_Col As Integer = 1     '工况所在列数
 Public Const MAX_NWC As Integer = 10     '最大工况数
 Public Const MAX_NPS As Integer = 100     '每个工况最大测点数
+
+Private Const First_Row As Integer = 13     '起始数据行数
+
+Private Const MaxElasticDisp_Row As Integer = 4
+Private Const MinCheckoutCoff_Row As Integer = 5
+Private Const MaxCheckoutCoff_Row As Integer = 6
+Private Const MinRefRemainDisp_Row As Integer = 7
+Private Const MaxRefRemainDisp_Row As Integer = 8
+
+Public StatPara(1 To MAX_NWC, 1 To 5)  '统计参数
+
 
 Const Node_Name_Col As Integer = 2  '测点编号所在列
 Const TheoryDisp_Col As Integer = 10  '理论位移所在列
@@ -35,8 +40,7 @@ Public CheckoutCoff(1 To MAX_NWC, 1 To 100)
 Public RefRemainDisp(1 To MAX_NWC, 1 To 100)
 Public DispUbound(1 To MAX_NWC) As Integer    '每个工况上界（下界为1）
 
-Public StatPara(1 To MAX_NWC, 1 To 3)  '统计参数,最小校验系数，最大校验系数，最大相对残余应变
-'StatPara(i,1~3)分别表示第i个工况最小校验系数，最大校验系数，最大相对残余应变
+
 
 Dim t
 
@@ -100,24 +104,33 @@ Public Sub AutoDisp_Click()
             rowCurr = rowCurr + 1
         Next
     Next
-    
-    '计算各个工况最小/大校验系数，最大相对残余变形
+
+    '计算各个工况统计参数
     For i = 1 To nWCs
-        StatPara(i, 1) = CheckoutCoff(i, 1): StatPara(i, 2) = CheckoutCoff(i, 1): StatPara(i, 3) = RefRemainDisp(i, 1)
+        StatPara(i, MaxElasticDeform_Index) = ElasticDisp(i, 1): StatPara(i, MinCheckoutCoff_Index) = CheckoutCoff(i, 1): StatPara(i, MaxCheckoutCoff_Index) = CheckoutCoff(i, 1)
+        StatPara(i, MinRefRemainDeform_Index) = RefRemainDisp(i, 1): StatPara(i, MaxRefRemainDeform_Index) = RefRemainDisp(i, 1)
         For j = 1 To DispUbound(i)
-            If (CheckoutCoff(i, j) < StatPara(i, 1)) Then
-                StatPara(i, 1) = CheckoutCoff(i, j)
+            If (ElasticDisp(i, j) > StatPara(i, MaxElasticDeform_Index)) Then
+                StatPara(i, 1) = ElasticDisp(i, j)
             End If
-            If (CheckoutCoff(i, j) > StatPara(i, 2)) Then
+            If (CheckoutCoff(i, j) < StatPara(i, MinCheckoutCoff_Index)) Then
                 StatPara(i, 2) = CheckoutCoff(i, j)
             End If
-            If (RefRemainDisp(i, j) > StatPara(i, 3)) Then
-                StatPara(i, 3) = RefRemainDisp(i, j)
+            If (CheckoutCoff(i, j) > StatPara(i, MaxCheckoutCoff_Index)) Then
+                StatPara(i, 3) = CheckoutCoff(i, j)
+            End If
+            If (RefRemainDisp(i, j) < StatPara(i, MinRefRemainDeform_Index)) Then
+                StatPara(i, 4) = RefRemainDisp(i, j)
+            End If
+            If (RefRemainDisp(i, j) > StatPara(i, MaxRefRemainDeform_Index)) Then
+                StatPara(i, 5) = RefRemainDisp(i, j)
             End If
         Next
         
         '数据写入Excel
-        Cells(StatPara1_Row, 2 * i) = Format(StatPara(i, 1), "Fixed"): Cells(StatPara2_Row, 2 * i) = Format(StatPara(i, 2), "Fixed"): Cells(StatPara3_Row, 2 * i) = Format(StatPara(i, 3), "Percent")
+        Cells(MaxElasticDisp_Row, 2 * i) = Format(StatPara(i, 1), "Fixed"): Cells(MinCheckoutCoff_Row, 2 * i) = Format(StatPara(i, 2), "Fixed")
+        Cells(MaxCheckoutCoff_Row, 2 * i) = Format(StatPara(i, MaxCheckoutCoff_Index), "Fixed"): Cells(MinRefRemainDisp_Row, 2 * i) = Format(StatPara(i, MinRefRemainDeform_Index), "Percent")
+        Cells(MaxRefRemainDisp_Row, 2 * i) = Format(StatPara(i, MaxRefRemainDeform_Index), "Percent")
     Next
 
  
@@ -135,8 +148,7 @@ Private Sub GenerateRows_Click()
         'Debug.Print nPs(i)
     Next
     'Debug.Print nWCs
-    
-    
+       
     Dim rowCurr As Integer    '行指针
     rowCurr = First_Row
     
@@ -146,8 +158,75 @@ Private Sub GenerateRows_Click()
             rowCurr = rowCurr + 1
         Next
     Next
+End Sub
+
+'自动作图（需要先计算）
+Private Sub AutoGraph_Click()
+    'https://docs.microsoft.com/zh-CN/office/vba/api/Excel.shapes.addchart2
+    'AddChart2(样式， XlChartType， 左， 顶部， 宽度， 高度， NewLayout)
+    Dim xPos, yPos As Integer  '定义第一张图x,y位置
+    xPos = 800: yPos = 150
+    Dim yStep As Integer    'y方向每个图表占用空间
+    yStep = 220
     
- 
+    Dim plot As Excel.Shape
+    
+
+    'Set plot = ws.Shapes.AddChart
+    
+    Dim i As Integer
+    Dim curr As Integer
+    curr = First_Row
+    
+    For i = 1 To nWCs
+
+'        Set plot = Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep)
+'        plot.Chart.SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
+'        Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
+'
+'        plot.Chart.SetElement (msoElementChartTitleNone)    '删除标题
+'
+'        plot.Chart.SeriesCollection(1).Name = CStr(Cells(11, 9))
+'        plot.Chart.SeriesCollection(2).Name = CStr(Cells(11, 10))
+'
+'        '横坐标
+'        plot.Chart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+'        plot.Chart.Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
+'        '纵坐标
+'        plot.Chart.SetElement msoElementPrimaryValueAxisTitleBelowAxis
+'        plot.Chart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep).Select
+    With ActiveChart
+            
+            .SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
+            Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
+            
+            .SetElement (msoElementChartTitleNone)    '删除标题
+            
+            .SeriesCollection(1).Name = CStr(Cells(11, 9))
+            .SeriesCollection(2).Name = CStr(Cells(11, 10))
+    
+            '横坐标
+            .SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+            .Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
+            '纵坐标
+            .SetElement msoElementPrimaryValueAxisTitleBelowAxis
+            .Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+            
+    End With
+        
+        curr = curr + DispUbound(i)
+    Next i
+    Set plot = Nothing
+    'ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+    
+        'ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+    'ActiveChart.SetElement (msoElementPrimaryValueAxisTitleAdjacentToAxis)
+        'ActiveChart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+    'Selection.Format.TextFrame2.TextRange.Characters.Text = "挠度值（mm）"
+'    ActiveSheet.Shapes.AddChart2(332, xlLineMarkersStacked, 800, 150 + 220).Select
+'    ActiveChart.SetSourceData Source:=Union(Range(Cells(13, 2), Cells(26, 2)), Range(Cells(13, 9), Cells(26, 9)), Range(Cells(13, 10), Cells(26, 10)))
+'    ActiveChart.SetElement (msoElementChartTitleNone)
 End Sub
 
 
