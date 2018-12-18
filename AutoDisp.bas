@@ -179,7 +179,7 @@ Private Sub AutoGraph_Click()
     curr = First_Row
     
     For i = 1 To nWCs
-
+'        MS EXCEL VBA 代码1
 '        Set plot = Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep)
 '        plot.Chart.SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
 '        Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
@@ -195,26 +195,52 @@ Private Sub AutoGraph_Click()
 '        '纵坐标
 '        plot.Chart.SetElement msoElementPrimaryValueAxisTitleBelowAxis
 '        plot.Chart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
-    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep).Select
-    With ActiveChart
+
+'    MS EXCEL VBA 代码2
+'    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep).Select
+'    With ActiveChart
+'
+'            .SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
+'            Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
+'
+'            .SetElement (msoElementChartTitleNone)    '删除标题
+'            .SeriesCollection(1).Name = CStr(Cells(11, 9))
+'            .SeriesCollection(2).Name = CStr(Cells(11, 10))
+'
+'            '横坐标
+'            .SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+'            .Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
+'            '纵坐标
+'            .SetElement msoElementPrimaryValueAxisTitleBelowAxis
+'            .Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+'
+'    End With
+        
+
+    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep, 300, 200).Select
+    'With ActiveChart
             
-            .SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
+            ActiveChart.SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
             Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
             
-            .SetElement (msoElementChartTitleNone)    '删除标题
-            
-            .SeriesCollection(1).Name = CStr(Cells(11, 9))
-            .SeriesCollection(2).Name = CStr(Cells(11, 10))
+            ActiveChart.SetElement (msoElementChartTitleNone)    '删除标题
+            ActiveChart.SeriesCollection(1).Name = CStr(Cells(11, 9))
+            ActiveChart.SeriesCollection(2).Name = CStr(Cells(11, 10))
     
             '横坐标
-            .SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
-            .Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
+            ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+            ActiveChart.Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
             '纵坐标
-            .SetElement msoElementPrimaryValueAxisTitleBelowAxis
-            .Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+            'ActiveChart.SetElement msoElementPrimaryValueAxisTitleBelowAxis
+            ActiveChart.SetElement msoElementPrimaryValueAxisTitleAdjacentToAxis
             
-    End With
-        
+            ActiveChart.Axes(xlValue).HasTitle = True
+            ActiveChart.Axes(xlValue).AxisTitle.Caption = "挠度值（mm）"
+    
+            'ActiveChart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+            
+    'End With
+
         curr = curr + DispUbound(i)
     Next i
     Set plot = Nothing
