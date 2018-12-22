@@ -15,20 +15,30 @@ Private Const MaxRefRemainDisp_Row As Integer = 8
 Public StatPara(1 To MAX_NWC, 1 To 5)  '统计参数
 
 
-Const Node_Name_Col As Integer = 2  '测点编号所在列
+Const Node_Name_Col As Integer = 2  '测点编号所在列（下同）
+
+Const InitDisp_Col As Integer = 3  '初始读数
+Const FullLoadDisp_Col As Integer = 4  '满载读数
+Const UnLoadDisp_Col As Integer = 6  '卸载读数
+
+
 Const TheoryDisp_Col As Integer = 10  '理论位移所在列
-Dim TotalDispCol As Integer    '总变形所在列
-Dim DeltaCol As Integer   '增量所在列
-Dim RemainDispCol As Integer    '残余变形所在列
-Dim ElasticCol As Integer    '弹性变形所在列
-Dim CheckoutCoffCol As Integer    '校验系数所在列
-Dim RefRemainDispCol As Integer    '相对残余变形所在列
+Const TotalDispCol As Integer = 5   '总变形所在列
+Const DeltaCol As Integer = 7  '增量所在列
+Const RemainDispCol As Integer = 8   '残余变形所在列
+Const ElasticCol As Integer = 9   '弹性变形所在列
+Const CheckoutCoffCol As Integer = 11   '校验系数所在列
+Const RefRemainDispCol As Integer = 12   '相对残余变形所在列
 
 Public nWCs As Integer    '（挠度）工况数
 Public nPN    '各个工况对应中文名称
 'nPN = Array("一", "二", "三", "四", "五", "六", "七", "八", "九", "十")
 
 Public GlobalWC(1 To MAX_NWC)    '全局工况定位数组
+
+Public InitDisp(1 To MAX_NWC, 1 To MAX_NPS)  '初始读数
+Public FullLoadDisp(1 To MAX_NWC, 1 To MAX_NPS)  '满载读数
+Public UnLoadDisp(1 To MAX_NWC, 1 To MAX_NPS)  '卸载读数
 
 Public TotalDisp(1 To MAX_NWC, 1 To 100)   'TotalDisp(i,j)表示第i个工况，第j个测点总变形
 Public NodeName(1 To MAX_NWC, 1 To 100) As String  '各个工况测点名称
@@ -40,10 +50,34 @@ Public CheckoutCoff(1 To MAX_NWC, 1 To 100)
 Public RefRemainDisp(1 To MAX_NWC, 1 To 100)
 Public DispUbound(1 To MAX_NWC) As Integer    '每个工况上界（下界为1）
 
-
-
-Dim t
-
+'清空数据
+Public Sub DispDataClear()
+  If (MsgBox("清空输入数据不可撤销，你确定要清空吗？", vbYesNo + vbExclamation, "该操作不可撤销") = vbNo) Then
+    Exit Sub
+  End If
+  
+  Dim i, j As Integer
+  Dim rowCurr As Integer    '行指针
+  rowCurr = First_Row
+  
+  '清空表格数据
+  While Cells(rowCurr, 1) <> ""    '第一个单元格数据作为判断依据
+    For i = 1 To RefRemainDispCol
+        Cells(rowCurr, i) = ""
+        Cells(rowCurr, i).Interior.Color = RGB(255, 255, 255) ' RGB(0, 176, 80)
+    Next
+    rowCurr = rowCurr + 1
+  Wend
+  
+  '清空统计数据
+    For i = 1 To MAX_NWC
+        Cells(MaxElasticDisp_Row, 2 * i) = ""
+        Cells(MinCheckoutCoff_Row, 2 * i) = ""
+        Cells(MaxCheckoutCoff_Row, 2 * i) = ""
+        Cells(MinRefRemainDisp_Row, 2 * i) = ""
+        Cells(MaxRefRemainDisp_Row, 2 * i) = ""
+    Next
+End Sub
 '''初始化全局变量
 Public Sub InitVar()
 
@@ -59,12 +93,6 @@ Public Sub InitVar()
         GlobalWC(i) = Cells(3, 2 * i)
     Next
     
-    TotalDispCol = 5
-    DeltaCol = 7
-    RemainDispCol = 8
-    ElasticCol = 9
-    CheckoutCoffCol = 11
-    RefRemainDispCol = 12
 End Sub
 
 
@@ -81,6 +109,10 @@ Public Sub AutoDisp_Click()
         
             NodeName(i, j) = Cells(rowCurr, Node_Name_Col)
             TheoryDisp(i, j) = Cells(rowCurr, TheoryDisp_Col)
+            InitDisp(i, j) = Cells(rowCurr, InitDisp_Col)
+            FullLoadDisp(i, j) = Cells(rowCurr, FullLoadDisp_Col)
+            UnLoadDisp(i, j) = Cells(rowCurr, UnLoadDisp_Col)
+            
             
             TotalDisp(i, j) = Cells(rowCurr, TotalDispCol - 1) - Cells(rowCurr, TotalDispCol - 2)    '总变形
             Cells(rowCurr, TotalDispCol) = TotalDisp(i, j)
@@ -89,7 +121,7 @@ Public Sub AutoDisp_Click()
             '增量不存储
             
             '算法：卸载与满载读数差值>=0，取卸载与满载读数差值，否则取0
-            RemainDisp(i, j) = IIf(Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5) >= 0, Cells(rowCurr, RemainDispCol - 2) - Cells(rowCurr, RemainDispCol - 5), 0)
+            RemainDisp(i, j) = IIf(UnLoadDisp(i, j) - InitDisp(i, j) >= 0, UnLoadDisp(i, j) - InitDisp(i, j), 0)
             Cells(rowCurr, RemainDispCol) = RemainDisp(i, j)    '残余变形
             
             ElasticDisp(i, j) = Cells(rowCurr, ElasticCol - 4) - Cells(rowCurr, ElasticCol - 1)
@@ -155,9 +187,21 @@ Private Sub GenerateRows_Click()
     For i = 0 To nWCs - 1    '遍历工况
         For j = 1 To nPs(i)    '遍历各个工况的测点
             Cells(rowCurr, WC_Col) = nPN(i)
+            
+            '设置必填项的背景色
+            Cells(rowCurr, WC_Col).Interior.Color = RGB(0, 176, 80)
+            Cells(rowCurr, Node_Name_Col).Interior.Color = RGB(0, 176, 80)
+            Cells(rowCurr, InitDisp_Col).Interior.Color = RGB(0, 176, 80)
+            Cells(rowCurr, FullLoadDisp_Col).Interior.Color = RGB(0, 176, 80)
+            Cells(rowCurr, UnLoadDisp_Col).Interior.Color = RGB(0, 176, 80)
+            Cells(rowCurr, TheoryDisp_Col).Interior.Color = RGB(0, 176, 80)
+            
             rowCurr = rowCurr + 1
         Next
     Next
+    
+    'TODO:添加背景色
+    
 End Sub
 
 '自动作图（需要先计算）
@@ -195,29 +239,7 @@ Private Sub AutoGraph_Click()
 '        '纵坐标
 '        plot.Chart.SetElement msoElementPrimaryValueAxisTitleBelowAxis
 '        plot.Chart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
-
-'    MS EXCEL VBA 代码2
-'    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep).Select
-'    With ActiveChart
-'
-'            .SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
-'            Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
-'
-'            .SetElement (msoElementChartTitleNone)    '删除标题
-'            .SeriesCollection(1).Name = CStr(Cells(11, 9))
-'            .SeriesCollection(2).Name = CStr(Cells(11, 10))
-'
-'            '横坐标
-'            .SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
-'            .Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
-'            '纵坐标
-'            .SetElement msoElementPrimaryValueAxisTitleBelowAxis
-'            .Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
-'
-'    End With
-        
-
-    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep, 300, 200).Select
+    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep, 350, 200).Select
     'With ActiveChart
             
             ActiveChart.SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
@@ -240,7 +262,26 @@ Private Sub AutoGraph_Click()
             'ActiveChart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
             
     'End With
-
+'    MS EXCEL VBA 代码2
+'    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep).Select
+'    With ActiveChart
+'
+'            .SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
+'            Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
+'
+'            .SetElement (msoElementChartTitleNone)    '删除标题
+'            .SeriesCollection(1).Name = CStr(Cells(11, 9))
+'            .SeriesCollection(2).Name = CStr(Cells(11, 10))
+'
+'            '横坐标
+'            .SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+'            .Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
+'            '纵坐标
+'            .SetElement msoElementPrimaryValueAxisTitleBelowAxis
+'            .Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
+'
+'    End With
+        
         curr = curr + DispUbound(i)
     Next i
     Set plot = Nothing
