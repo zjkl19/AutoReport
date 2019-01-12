@@ -53,6 +53,7 @@ TestFail:
     Assert.Fail "Test raised an error: #" & Err.Number & " - " & Err.Description
 End Sub
 
+
 '@TestMethod
 Public Sub AutoDisp_Click_Tests()
     On Error GoTo TestFail
@@ -63,11 +64,11 @@ Public Sub AutoDisp_Click_Tests()
     AutoDisp_Click
     'Assert:
     
-    Assert.AreEqual "2.91", CStr(Format(Cells(20 + 3, 5), "Fixed")), "Not Equal" '总变形
-    Assert.AreEqual "0.14", CStr(Format(Cells(20 + 3, 8), "Fixed")), "Not Equal" '残余变形
-    Assert.AreEqual "2.77", CStr(Format(Cells(20 + 3, 9), "Fixed")), "Not Equal" '弹性变形
-    Assert.AreEqual "0.41", CStr(Format(Cells(20 + 3, 11), "Fixed")), "Not Equal" '校验系数
-    Assert.AreEqual "4.81%", CStr(Format(Cells(20 + 3, 12), "Percent")), "Not Equal" '相对残余变形
+    Assert.AreEqual "2.91", CStr(Format(Cells(20 + 5, 5), "Fixed")), "Not Equal" '总变形
+    Assert.AreEqual "0.14", CStr(Format(Cells(20 + 5, 8), "Fixed")), "Not Equal" '残余变形
+    Assert.AreEqual "2.77", CStr(Format(Cells(20 + 5, 9), "Fixed")), "Not Equal" '弹性变形
+    Assert.AreEqual "0.41", CStr(Format(Cells(20 + 5, 11), "Fixed")), "Not Equal" '校验系数
+    Assert.AreEqual "4.81%", CStr(Format(Cells(20 + 5, 12), "Percent")), "Not Equal" '相对残余变形
     
     Exit Sub
 TestFail:
@@ -84,11 +85,11 @@ Public Sub AutoStrain_Click_Tests()
     AutoStrain_Click
     'Assert:
     
-    Assert.AreEqual "43.22", CStr(Format(Cells(21 + 3, 27), "Fixed")), "Not Equal" '总应变
-    Assert.AreEqual "42.07", CStr(Format(Cells(21 + 3, 28), "Fixed")), "Not Equal" '弹性应变
-    Assert.AreEqual "1.15", CStr(Format(Cells(21 + 3, 29), "Fixed")), "Not Equal" '残余应变
-    Assert.AreEqual "0.40", CStr(Format(Cells(21 + 3, 31), "Fixed")), "Not Equal" '校验系数
-    Assert.AreEqual "2.66%", CStr(Format(Cells(21 + 3, 32), "Percent")), "Not Equal" '相对残余应变
+    Assert.AreEqual "43.22", CStr(Format(Cells(21 + 5, 27), "Fixed")), "Not Equal" '总应变
+    Assert.AreEqual "42.07", CStr(Format(Cells(21 + 5, 28), "Fixed")), "Not Equal" '弹性应变
+    Assert.AreEqual "1.15", CStr(Format(Cells(21 + 5, 29), "Fixed")), "Not Equal" '残余应变
+    Assert.AreEqual "0.40", CStr(Format(Cells(21 + 5, 31), "Fixed")), "Not Equal" '校验系数
+    Assert.AreEqual "2.66%", CStr(Format(Cells(21 + 5, 32), "Percent")), "Not Equal" '相对残余应变
     
     Exit Sub
 TestFail:

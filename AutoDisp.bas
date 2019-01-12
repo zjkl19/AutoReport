@@ -109,6 +109,9 @@ Public Sub AutoDisp_Click()
         
             NodeName(i, j) = Cells(rowCurr, Node_Name_Col)
             TheoryDisp(i, j) = Cells(rowCurr, TheoryDisp_Col)
+            
+            TheoryDisp(i, j) = Round(TheoryDisp(i, j), 2)    '取2位小数
+            
             InitDisp(i, j) = Cells(rowCurr, InitDisp_Col)
             FullLoadDisp(i, j) = Cells(rowCurr, FullLoadDisp_Col)
             UnLoadDisp(i, j) = Cells(rowCurr, UnLoadDisp_Col)
@@ -190,7 +193,10 @@ Private Sub GenerateRows_Click()
             
             '设置必填项的背景色
             Cells(rowCurr, WC_Col).Interior.Color = RGB(0, 176, 80)
+            
             Cells(rowCurr, Node_Name_Col).Interior.Color = RGB(0, 176, 80)
+            Cells(rowCurr, Node_Name_Col).NumberFormatLocal = "0.00"
+            
             Cells(rowCurr, InitDisp_Col).Interior.Color = RGB(0, 176, 80)
             Cells(rowCurr, FullLoadDisp_Col).Interior.Color = RGB(0, 176, 80)
             Cells(rowCurr, UnLoadDisp_Col).Interior.Color = RGB(0, 176, 80)
@@ -208,6 +214,9 @@ End Sub
 Private Sub AutoGraph_Click()
     'https://docs.microsoft.com/zh-CN/office/vba/api/Excel.shapes.addchart2
     'AddChart2(样式， XlChartType， 左， 顶部， 宽度， 高度， NewLayout)
+    Dim DispSheetName As String
+    DispSheetName = "挠度"
+    
     Dim xPos, yPos As Integer  '定义第一张图x,y位置
     xPos = 800: yPos = 150
     Dim yStep As Integer    'y方向每个图表占用空间
@@ -239,29 +248,33 @@ Private Sub AutoGraph_Click()
 '        '纵坐标
 '        plot.Chart.SetElement msoElementPrimaryValueAxisTitleBelowAxis
 '        plot.Chart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
-    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep, 350, 200).Select
-    'With ActiveChart
+    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkers, xPos, yPos + (i - 1) * yStep, 350, 200).Select
+    With ActiveChart
             
-            ActiveChart.SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
+            .SetSourceData Source:=Union(Range(Cells(curr, Node_Name_Col), Cells(curr + DispUbound(i) - 1, Node_Name_Col)), _
             Range(Cells(curr, ElasticCol), Cells(curr + DispUbound(i) - 1, ElasticCol)), Range(Cells(curr, TheoryDisp_Col), Cells(curr + DispUbound(i) - 1, TheoryDisp_Col)))
             
-            ActiveChart.SetElement (msoElementChartTitleNone)    '删除标题
-            ActiveChart.SeriesCollection(1).Name = CStr(Cells(11, 9))
-            ActiveChart.SeriesCollection(2).Name = CStr(Cells(11, 10))
+            
+            .SetElement (msoElementChartTitleNone)    '删除标题
+            .SeriesCollection(1).Name = "实测值" 'CStr(Cells(11, 9))
+            .SeriesCollection(2).Name = "理论值" ' CStr(Cells(11, 10))
     
             '横坐标
-            ActiveChart.SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
-            ActiveChart.Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
+            .SetElement (msoElementPrimaryCategoryAxisTitleAdjacentToAxis)
+            .Axes(xlCategory, xlPrimary).AxisTitle.Text = "测点号"
             '纵坐标
             'ActiveChart.SetElement msoElementPrimaryValueAxisTitleBelowAxis
-            ActiveChart.SetElement msoElementPrimaryValueAxisTitleAdjacentToAxis
+            .SetElement msoElementPrimaryValueAxisTitleAdjacentToAxis
             
-            ActiveChart.Axes(xlValue).HasTitle = True
-            ActiveChart.Axes(xlValue).AxisTitle.Caption = "挠度值（mm）"
+            .Axes(xlValue).HasTitle = True
+            .Axes(xlValue).AxisTitle.Caption = "挠度值（mm）"
+             .AutoScaling = True     '自动坐标轴范围
     
             'ActiveChart.Axes(xlValue, xlPrimary).AxisTitle.Text = "挠度值（mm）"
             
-    'End With
+    End With
+    
+
 '    MS EXCEL VBA 代码2
 '    Sheets(DispSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep).Select
 '    With ActiveChart

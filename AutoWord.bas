@@ -14,11 +14,21 @@ Public Const MaxRefRemainDeform_Index As Integer = 5
 
 '自动生成计算书
 Sub AutoCalcReport()
+
+    Dim templateFileName As String
+    templateFileName = "自动计算书模板.docx" '"报告模板.docx"
+    
+    Dim calcFileName As String
+    calcFileName = "自动生成的计算书.docx"
+
     Dim wordApp As Word.Application
     Dim doc As Word.Document
         
     Dim i, j As Integer
-        
+    
+    Dim resultFlag As Boolean   'True表示导出成功
+    resultFlag = False
+    
     Dim dispRawTbTitle(1 To MAX_NWC) As String
     Dim dispRawTbTitleVar(1 To MAX_NWC) As String
     For i = 1 To MAX_NWC
@@ -69,9 +79,10 @@ Sub AutoCalcReport()
     
     Dim tbl As Table
     
+    On Error GoTo CloseWord:
     Set wordApp = CreateObject("Word.Application")
     
-    FileCopy ThisWorkbook.Path & "\AutoCalcReportTemplate.docx", ThisWorkbook.Path & "\AutoCalcReportSource.docx"
+    FileCopy ThisWorkbook.Path & "\" & templateFileName, ThisWorkbook.Path & "\AutoCalcReportSource.docx"
     
     wordApp.Documents.Open ThisWorkbook.Path & "\AutoCalcReportSource.docx"
 
@@ -223,21 +234,38 @@ Sub AutoCalcReport()
 
     wordApp.Documents.Save
     
-    wordApp.ActiveDocument.SaveAs2 ThisWorkbook.Path & "\AutoCalcReportResult.docx"
+    wordApp.ActiveDocument.SaveAs2 ThisWorkbook.Path & "\" & calcFileName
+    resultFlag = True
     
+CloseWord:
+
+    wordApp.Documents.Close
+    wordApp.Quit
     Set wordApp = Nothing
     Set tbl = Nothing
+    If resultFlag = True Then
+        MsgBox "计算书导出完成！"
+    Else
+        MsgBox "计算书导出失败！"
+    End If
 End Sub
 
 '请先计算，再生成Word报告
 Public Sub AutoReport()
-    'On Error GoTo CloseWord
+
+    Dim reportTemplateFileName As String
+    reportTemplateFileName = "自动报告模板.docx" '"报告模板.docx"
+    
+    Dim reportFileName As String
+    reportFileName = "自动生成的报告.docx"
     
     Dim wordApp As Word.Application
     Dim doc As Word.Document
     Dim r As Word.Range
     
     Dim i, j As Integer
+    Dim resultFlag As Boolean   'True表示导出成功
+    resultFlag = False
     
     Dim dispResult(1 To MAX_NWC) As String    '和word中响应DocVariable对应
     Dim dispResultVar(1 To MAX_NWC) As String    '和word中响应DocVariable对应（常量数组）
@@ -287,15 +315,18 @@ Public Sub AutoReport()
 
     Dim tbl As Table
 
+    Dim tableDataStartRow As Integer    '表格数据起始行
     
+    On Error GoTo CloseWord:
     Set wordApp = CreateObject("Word.Application")
     
-    FileCopy ThisWorkbook.Path & "\AutoReportTemplate.docx", ThisWorkbook.Path & "\AutoReportSource.docx"
+    FileCopy ThisWorkbook.Path & "\" & reportTemplateFileName, ThisWorkbook.Path & "\AutoReportSource.docx"
     
     wordApp.Documents.Open ThisWorkbook.Path & "\AutoReportSource.docx"
 
     wordApp.Visible = False
 
+    tableDataStartRow = 3
     For i = 1 To nWCs    'i定位工况
         '插入结果描述
         dispResult(i) = "(" & Str(i) & ")在工况" & CStr(nPN(GlobalWC(i) - 1)) & "荷载作用下，主梁最大实测弹性挠度值为" & Format(StatPara(i, MaxElasticDeform_Index), "Fixed") & "mm，" _
@@ -305,9 +336,8 @@ Public Sub AutoReport()
         wordApp.ActiveDocument.Variables(dispResultVar(i)).value = dispResult(i)
     
         '插入概述
-        dispSummary(i) = "工况" & CStr(nPN(GlobalWC(i) - 1)) & "测试截面测点挠度检测结果详见表x-x、图x-x。检测结果表明，所测主梁的挠度校验系数在" & Format(StatPara(i, MinCheckoutCoff_Index), "Fixed") & "～" & Format(StatPara(i, MaxCheckoutCoff_Index), "Fixed") & "之间，" _
-        & "满足《公路桥梁承载能力检测评定规程》中规定的校验系数小于1.0的要求。所测主梁的最大相对残余变形为" & Format(StatPara(i, MaxRefRemainDeform_Index), "Percent") & "，" _
-        & "满足《公路桥梁承载能力检测评定规程》中规定的残余变形限值要求(限值20%)，恢复状况良好。"
+        dispSummary(i) = "工况" & CStr(nPN(GlobalWC(i) - 1)) & "主梁挠度检测结果详见表x-，挠度实测值与理论计算值的关系曲线详见图x-x。检测结果表明，所测主梁的挠度校验系数在" & Format(StatPara(i, MinCheckoutCoff_Index), "Fixed") & "～" & Format(StatPara(i, MaxCheckoutCoff_Index), "Fixed") & "之间，" _
+        & "，相对残余变形在" & Format(StatPara(i, MinRefRemainDeform_Index), "Percent") & "～" & Format(StatPara(i, MaxRefRemainDeform_Index), "Percent") & "之间。"
                
         wordApp.ActiveDocument.Variables(dispSummaryVar(i)).value = dispSummary(i)
         
@@ -317,41 +347,51 @@ Public Sub AutoReport()
         
         '插入表格
         
-        Set tbl = wordApp.ActiveDocument.Tables.Add(wordApp.ActiveDocument.Bookmarks(dispTblBookmarks(i)).Range, NumRows:=DispUbound(i) + 1, NumColumns:=7)    'NumRows+1表示表头
+        Set tbl = wordApp.ActiveDocument.Tables.Add(wordApp.ActiveDocument.Bookmarks(dispTblBookmarks(i)).Range, NumRows:=DispUbound(i) + tableDataStartRow - 1, NumColumns:=7)   'NumRows+x表示表头
+        
+        tbl.Cell(1, 1).Merge tbl.Cell(2, 1)
+        tbl.Cell(1, 2).Merge tbl.Cell(1, 4)
+        tbl.Cell(1, 3).Merge tbl.Cell(2, 5)
+        tbl.Cell(1, 4).Merge tbl.Cell(2, 6)
+        tbl.Cell(1, 5).Merge tbl.Cell(2, 7)
+        
         tbl.Cell(1, 1).Range.InsertAfter "测点号"
-        tbl.Cell(1, 2).Range.InsertAfter "总变形"
-        tbl.Cell(1, 3).Range.InsertAfter "弹性变形"
-        tbl.Cell(1, 4).Range.InsertAfter "残余变形"
-        tbl.Cell(1, 5).Range.InsertAfter "满载理论值(mm)"
-        tbl.Cell(1, 6).Range.InsertAfter "校验系数"
-        tbl.Cell(1, 7).Range.InsertAfter "相对残余变形(%)"
+        tbl.Cell(1, 2).Range.InsertAfter "实测值(mm)"
+        tbl.Cell(2, 2).Range.InsertAfter "总变形"
+        tbl.Cell(2, 3).Range.InsertAfter "弹性变形"
+        tbl.Cell(2, 4).Range.InsertAfter "残余变形"
+        tbl.Cell(1, 3).Range.InsertAfter "满载理论值(mm)"
+        tbl.Cell(1, 4).Range.InsertAfter "校验系数"
+        tbl.Cell(1, 5).Range.InsertAfter "相对残余变形(%)"
         
 
         For j = 1 To DispUbound(i)    'j定位测点
-            tbl.Cell(1 + j, 1).Range.InsertAfter Format(NodeName(i, j), "Fixed")
-            tbl.Cell(1 + j, 2).Range.InsertAfter Format(TotalDisp(i, j), "Fixed")
-            tbl.Cell(1 + j, 3).Range.InsertAfter Format(ElasticDisp(i, j), "Fixed")
-            tbl.Cell(1 + j, 4).Range.InsertAfter Format(RemainDisp(i, j), "Fixed")
-            tbl.Cell(1 + j, 5).Range.InsertAfter Format(TheoryDisp(i, j), "Fixed")
-            tbl.Cell(1 + j, 6).Range.InsertAfter Format(CheckoutCoff(i, j), "Fixed")
-            tbl.Cell(1 + j, 7).Range.InsertAfter Format(RefRemainDisp(i, j), "Percent")
+            tbl.Cell(tableDataStartRow - 1 + j, 1).Range.InsertAfter Format(NodeName(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 2).Range.InsertAfter Format(TotalDisp(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 3).Range.InsertAfter Format(ElasticDisp(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 4).Range.InsertAfter Format(RemainDisp(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 5).Range.InsertAfter Format(TheoryDisp(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 6).Range.InsertAfter Format(CheckoutCoff(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 7).Range.InsertAfter Format(RefRemainDisp(i, j), "Percent")
         Next
         
         SetTableBorder tbl
+       
     Next i
+    tbl.Rows.Alignment = wdAlignRowCenter
     
+    tableDataStartRow = 3
     For i = 1 To StrainNWCs    'i定位工况
         '插入结果描述
-        strainResult(i) = "(" & Str(i) & ")在工况" & CStr(nPN(StrainGlobalWC(i) - 1)) & "荷载作用下，所测主梁最大弹性应变为" & Format(StrainStatPara(i, MaxElasticDeform_Index), "Fixed") & "με，" _
+        strainResult(i) = "(" & Str(i) & ")在工况" & CStr(nPN(StrainGlobalWC(i) - 1)) & "荷载作用下，所测主梁最大弹性应变为" & Round(StrainStatPara(i, MaxElasticDeform_Index), 0) & "με，" _
         & "实测控制截面的混凝土应变值均小于理论值，校验系数在" & Format(StrainStatPara(i, MinCheckoutCoff_Index), "Fixed") & "～" & Format(StrainStatPara(i, MaxCheckoutCoff_Index), "Fixed") & "之间；" _
         & "相对残余应变在" & Format(StrainStatPara(i, MinRefRemainDeform_Index), "Percent") & "～" & Format(StrainStatPara(i, MaxRefRemainDeform_Index), "Percent") & "之间。"
         
         wordApp.ActiveDocument.Variables(strainResultVar(i)).value = strainResult(i)
         '插入概述
-        strainSummary(i) = "工况" & CStr(nPN(StrainGlobalWC(i) - 1)) & "测试截面测点应变检测结果详见表x-x、图x-x。检测结果表明，所测主梁的应变校验系数在" _
+        strainSummary(i) = "工况" & CStr(nPN(StrainGlobalWC(i) - 1)) & "测试截面测点应变检测结果详见表x-x。应变实测值与理论计算值的关系曲线详见图x-x。检测结果表明，所测主梁的应变校验系数在" _
         & Format(StrainStatPara(i, MinCheckoutCoff_Index), "Fixed") & "～" & Format(StrainStatPara(i, MaxCheckoutCoff_Index), "Fixed") & "之间，" _
-        & "满足《公路桥梁承载能力检测评定规程》规定的校验系数小于1.0的要求。所测构件的最大相对残余应变为" & Format(StrainStatPara(i, MaxRefRemainDeform_Index), "Percent") _
-        & "，满足《公路桥梁承载能力检测评定规程》中规定的残余应变限值要求(限值20%)，恢复状况良好。"
+        & "相对残余应变在" & Format(StrainStatPara(i, MinRefRemainDeform_Index), "Percent") & "～" & Format(StrainStatPara(i, MaxCheckoutCoff_Index), "Fixed") & "之间。"
         
         wordApp.ActiveDocument.Variables(strainSummaryVar(i)).value = strainSummary(i)
         
@@ -361,34 +401,46 @@ Public Sub AutoReport()
         
         '插入表格
         
-        Set tbl = wordApp.ActiveDocument.Tables.Add(wordApp.ActiveDocument.Bookmarks(strainTblBookmarks(i)).Range, NumRows:=StrainUbound(i) + 1, NumColumns:=7)    'NumRows+1表示表头
+        Set tbl = wordApp.ActiveDocument.Tables.Add(wordApp.ActiveDocument.Bookmarks(strainTblBookmarks(i)).Range, NumRows:=StrainUbound(i) + tableDataStartRow - 1, NumColumns:=7)     'NumRows+1表示表头
+        
+        tbl.Cell(1, 1).Merge tbl.Cell(2, 1)
+        tbl.Cell(1, 2).Merge tbl.Cell(1, 4)
+        tbl.Cell(1, 3).Merge tbl.Cell(2, 5)
+        tbl.Cell(1, 4).Merge tbl.Cell(2, 6)
+        tbl.Cell(1, 5).Merge tbl.Cell(2, 7)
+        
         tbl.Cell(1, 1).Range.InsertAfter "测点号"
-        tbl.Cell(1, 2).Range.InsertAfter "总应变"
-        tbl.Cell(1, 3).Range.InsertAfter "弹性应变"
-        tbl.Cell(1, 4).Range.InsertAfter "残余应变"
-        tbl.Cell(1, 5).Range.InsertAfter "满载理论值(με)"
-        tbl.Cell(1, 6).Range.InsertAfter "校验系数"
-        tbl.Cell(1, 7).Range.InsertAfter "相对残余应变(%)"
+        tbl.Cell(1, 2).Range.InsertAfter "实测值(με)"
+        tbl.Cell(2, 2).Range.InsertAfter "总应变"
+        tbl.Cell(2, 3).Range.InsertAfter "弹性应变"
+        tbl.Cell(2, 4).Range.InsertAfter "残余应变"
+        tbl.Cell(1, 3).Range.InsertAfter "满载理论值(με)"
+        tbl.Cell(1, 4).Range.InsertAfter "校验系数"
+        tbl.Cell(1, 5).Range.InsertAfter "相对残余应变(%)"
+        
+
         
         For j = 1 To StrainUbound(i)    'j定位测点
-            tbl.Cell(1 + j, 1).Range.InsertAfter Format(StrainNodeName(i, j), "Fixed")
-            tbl.Cell(1 + j, 2).Range.InsertAfter Format(INTTotalStrain(i, j), "Fixed")
-            tbl.Cell(1 + j, 3).Range.InsertAfter Format(INTElasticStrain(i, j), "Fixed")
-            tbl.Cell(1 + j, 4).Range.InsertAfter Format(INTRemainStrain(i, j), "Fixed")
-            tbl.Cell(1 + j, 5).Range.InsertAfter Format(TheoryStrain(i, j), "Fixed")
-            tbl.Cell(1 + j, 6).Range.InsertAfter Format(INTDivStrainCheckoutCoff(i, j), "Fixed")
-            tbl.Cell(1 + j, 7).Range.InsertAfter Format(INTDivRefRemainStrain(i, j), "Percent")
+            tbl.Cell(tableDataStartRow - 1 + j, 1).Range.InsertAfter Format(StrainNodeName(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 2).Range.InsertAfter Format(INTTotalStrain(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 3).Range.InsertAfter Format(INTElasticStrain(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 4).Range.InsertAfter Format(INTRemainStrain(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 5).Range.InsertAfter Format(TheoryStrain(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 6).Range.InsertAfter Format(INTDivStrainCheckoutCoff(i, j), "Fixed")
+            tbl.Cell(tableDataStartRow - 1 + j, 7).Range.InsertAfter Format(INTDivRefRemainStrain(i, j), "Percent")
         Next
         
         SetTableBorder tbl
 
     Next
+    wordApp.ActiveDocument.Tables(2).Rows.Alignment = wdAlignRowCenter
     
     wordApp.ActiveDocument.Fields.Update    '更新域
 
     wordApp.Documents.Save
     
-    wordApp.ActiveDocument.SaveAs2 ThisWorkbook.Path & "\AutoReportResult.docx"
+    wordApp.ActiveDocument.SaveAs2 ThisWorkbook.Path & "\" & reportFileName
+    resultFlag = True
 CloseWord:
     wordApp.Documents.Close
     wordApp.Quit
@@ -396,13 +448,40 @@ CloseWord:
     Set wordApp = Nothing
     Set tbl = Nothing
     
+    If resultFlag = True Then
+        MsgBox "报告导出完成！"
+    Else
+        MsgBox "报告导出失败！"
+    End If
+    
 End Sub
 '设置table的边界线
 Private Sub SetTableBorder(ByRef tbl As Table)
+
+    On Error Resume Next
     With tbl
         With .Borders
             .InsideLineStyle = wdLineStyleSingle
             .OutsideLineStyle = wdLineStyleSingle
+        End With
+    End With
+    
+    With tbl
+        With .Borders(wdBorderLeft)
+            .LineStyle = wdLineStyleSingle
+            .LineWidth = wdLineWidth150pt
+        End With
+        With .Borders(wdBorderRight)
+            .LineStyle = wdLineStyleSingle
+            .LineWidth = wdLineWidth150pt
+        End With
+        With .Borders(wdBorderTop)
+            .LineStyle = wdLineStyleSingle
+            .LineWidth = wdLineWidth150pt
+        End With
+        With .Borders(wdBorderBottom)
+            .LineStyle = wdLineStyleSingle
+            .LineWidth = wdLineWidth150pt
         End With
     End With
 End Sub

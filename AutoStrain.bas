@@ -40,6 +40,9 @@ Dim d6 As Integer    '相对残余应变
 
 
 Const StrainNode_Name_Col As Integer = 2  '测点编号所在列
+Private Const Strain_WC_Col As Integer = 1    '应变工况所在列
+Private Const StrainNode_WCCopy_Col As Integer = 25
+Private Const StrainNode_NameCopy_Col As Integer = 26
 
 Public StrainGlobalWC(1 To MAX_NWC)    '全局工况定位数组
 
@@ -80,7 +83,9 @@ Private Const RemainStrain_Col As Integer = 19
 
 Private Const TheoryStress_Col As Integer = 20
 
-Private Const TheoryStrain_Col As Integer = 30
+Private Const TheoryStrain_Col As Integer = 9
+Private Const TheoryStrainCopy_Col As Integer = 30  '复制数据
+
 Private Const StrainCheckoutCoff_Col As Integer = 31
 Private Const RefRemainStrain_Col As Integer = 32
 
@@ -120,7 +125,7 @@ Private Sub GenerateStrainRows_Click()
     
     Dim ds As DeformService
     Set ds = New DeformService
-    ds.GenerateRows StrainNWCs, StrainNPs, rowCurr, 1, colorArray
+    ds.GenerateRows StrainNWCs, StrainNPs, rowCurr, 1, 2, colorArray
     Set ds = Nothing
  
 End Sub
@@ -137,15 +142,19 @@ Public Sub StrainDataClear()
   
   'TODO:数组初始化更灵活
   Dim dataArray(1 To 100) As Integer    '待清空的列
-  For i = 1 To 8
-    dataArray(i) = i
+  k = 1
+  For i = 1 To 9
+    dataArray(k) = i
+    k = k + 1
   Next i
-  For i = 12 To 21
-    dataArray(i - 3) = i    '序号从9开始
+  For i = 12 To 19
+    dataArray(k) = i    '序号从9开始
+    k = k + 1
   Next i
   
   For i = 25 To 32
-    dataArray(i - (25 - 18 - 1)) = i '序号从19开始
+    dataArray(k) = i '序号从19开始
+    k = k + 1
   Next i
   
   
@@ -209,6 +218,12 @@ Public Sub AutoStrain_Click()
         For j = 1 To StrainUbound(i)
         
             StrainNodeName(i, j) = Cells(rowCurr, StrainNode_Name_Col)
+            
+            '以下两行复制数据，方便查看
+            Cells(rowCurr, StrainNode_WCCopy_Col) = Cells(rowCurr, Strain_WC_Col)
+            Cells(rowCurr, StrainNode_NameCopy_Col) = Cells(rowCurr, StrainNode_Name_Col)
+            
+            
             TheoryStress(i, j) = Cells(rowCurr, TheoryStress_Col)
             InitStrainR0(i, j) = Cells(rowCurr, e1)
             InitStrainT0(i, j) = Cells(rowCurr, e2)
@@ -247,6 +262,7 @@ Public Sub AutoStrain_Click()
             Cells(rowCurr, INTElasticStrain_Col) = INTElasticStrain(i, j)    '弹性应变
              
             TheoryStrain(i, j) = Cells(rowCurr, TheoryStrain_Col)    '理论应变直接取值
+            Cells(rowCurr, TheoryStrainCopy_Col) = TheoryStrain(i, j)
             
             StrainCheckoutCoff(i, j) = ElasticStrain(i, j) / TheoryStrain(i, j)
             INTDivStrainCheckoutCoff(i, j) = INTElasticStrain(i, j) / TheoryStrain(i, j)
@@ -318,12 +334,13 @@ Public Sub AutoStrainGraph()
     curr = First_Row
     
     For i = 1 To StrainNWCs
-        Sheets(StrainSheetName).Shapes.AddChart2(332, xlLineMarkersStacked, xPos, yPos + (i - 1) * yStep, 350, 200).Select
+        Sheets(StrainSheetName).Shapes.AddChart2(332, xlLineMarkers, xPos, yPos + (i - 1) * yStep, 350, 200).Select
         With ActiveChart
     
                 .SetSourceData Source:=Union(Range(Cells(curr, StrainNode_Name_Col), Cells(curr + StrainUbound(i) - 1, StrainNode_Name_Col)), _
                 Range(Cells(curr, INTElasticStrain_Col), Cells(curr + StrainUbound(i) - 1, INTElasticStrain_Col)), Range(Cells(curr, TheoryStrain_Col), Cells(curr + StrainUbound(i) - 1, TheoryStrain_Col)))
                 
+                  
                 .SetElement (msoElementChartTitleNone)    '删除标题
                 .SeriesCollection(1).Name = "实测值"
                 .SeriesCollection(2).Name = "理论值"
@@ -339,7 +356,7 @@ Public Sub AutoStrainGraph()
         
         End With
         
-        curr = curr + DispUbound(i)
+        curr = curr + StrainUbound(i)
     Next i
 
 
