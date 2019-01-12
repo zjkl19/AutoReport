@@ -71,9 +71,12 @@ Public INTRemainStrain(1 To MAX_NWC, 1 To MAX_NPS) As Double
 Public INTDivStrainCheckoutCoff(1 To MAX_NWC, 1 To MAX_NPS) As Double   '整数应变值运算所得结果（下同）
 Public INTDivRefRemainStrain(1 To MAX_NWC, 1 To MAX_NPS) As Double
 
-Private Const TotalStrain_Col As Integer = 27
-Private Const RemainStrain_Col As Integer = 29
-Private Const ElasticStrain_Col As Integer = 28
+Private Const INTTotalStrain_Col As Integer = 27
+Private Const INTRemainStrain_Col As Integer = 29
+Private Const INTElasticStrain_Col As Integer = 28
+
+Private Const TotalStrain_Col As Integer = 16
+Private Const RemainStrain_Col As Integer = 19
 
 Private Const TheoryStress_Col As Integer = 20
 
@@ -174,6 +177,24 @@ Public Function GetStrain(ByVal r2, ByVal r1, ByVal t2, ByVal t1)
     GetStrain = G * c * (r2 - r1) + k * (t2 - t1)
 End Function
 
+'计算残余应变
+'deltaS:卸载状态与初始状态对比产生的应变值，totalS:总应变
+Public Function GetRemainStrain(ByVal deltaS, ByVal totalS)
+    If totalS >= 0 Then
+        If deltaS >= 0 Then
+            GetRemainStrain = deltaS
+        Else
+            GetRemainStrain = 0
+        End If
+    ElseIf totalS < 0 Then
+        If deltaS <= 0 Then
+            GetRemainStrain = deltaS
+        Else
+           GetRemainStrain = 0
+        End If
+    End If
+End Function
+
 '自动计算应变
 Public Sub AutoStrain_Click()
 
@@ -210,52 +231,64 @@ Public Sub AutoStrain_Click()
             
             TotalStrain(i, j) = GetStrain(Cells(rowCurr, e3), Cells(rowCurr, e1), Cells(rowCurr, e4), Cells(rowCurr, e2))
             INTTotalStrain(i, j) = Round(TotalStrain(i, j), 0)
-            Cells(rowCurr, TotalStrain_Col) = INTTotalStrain(i, j)
             
-             '算法：卸载与初始差值>=0，取卸载与初始差值，否则取0
-            RemainStrain(i, j) = IIf(GetStrain(Cells(rowCurr, e5), Cells(rowCurr, e1), Cells(rowCurr, e6), Cells(rowCurr, e2)) >= 0 _
-            , GetStrain(Cells(rowCurr, e5), Cells(rowCurr, e1), Cells(rowCurr, e6), Cells(rowCurr, e2)), 0)
+            Cells(rowCurr, TotalStrain_Col) = TotalStrain(i, j)
+            Cells(rowCurr, INTTotalStrain_Col) = INTTotalStrain(i, j)
+            
+            RemainStrain(i, j) = GetRemainStrain(GetStrain(Cells(rowCurr, e5), Cells(rowCurr, e1), Cells(rowCurr, e6), Cells(rowCurr, e2)), TotalStrain(i, j))
+            'IIf(GetStrain(Cells(rowCurr, e5), Cells(rowCurr, e1), Cells(rowCurr, e6), Cells(rowCurr, e2)) >= 0 _
+            ', GetStrain(Cells(rowCurr, e5), Cells(rowCurr, e1), Cells(rowCurr, e6), Cells(rowCurr, e2)), 0)
             INTRemainStrain(i, j) = Round(RemainStrain(i, j), 0)
-            Cells(rowCurr, RemainStrain_Col) = INTRemainStrain(i, j)    '残余应变
+            Cells(rowCurr, RemainStrain_Col) = RemainStrain(i, j)
+            Cells(rowCurr, INTRemainStrain_Col) = INTRemainStrain(i, j)    '残余应变
             
             ElasticStrain(i, j) = TotalStrain(i, j) - RemainStrain(i, j)
             INTElasticStrain(i, j) = INTTotalStrain(i, j) - INTRemainStrain(i, j)
-            Cells(rowCurr, ElasticStrain_Col) = INTElasticStrain(i, j)    '弹性应变
+            Cells(rowCurr, INTElasticStrain_Col) = INTElasticStrain(i, j)    '弹性应变
              
             TheoryStrain(i, j) = Cells(rowCurr, TheoryStrain_Col)    '理论应变直接取值
             
             StrainCheckoutCoff(i, j) = ElasticStrain(i, j) / TheoryStrain(i, j)
             INTDivStrainCheckoutCoff(i, j) = INTElasticStrain(i, j) / TheoryStrain(i, j)
             Cells(rowCurr, StrainCheckoutCoff_Col) = INTDivStrainCheckoutCoff(i, j)    '校验系数
-             
-            RefRemainStrain(i, j) = RemainStrain(i, j) / TotalStrain(i, j)
-            INTDivRefRemainStrain(i, j) = INTRemainStrain(i, j) / INTTotalStrain(i, j)
+            
+            If TotalStrain(i, j) = 0 Then
+                RefRemainStrain(i, j) = 0
+            Else
+                RefRemainStrain(i, j) = RemainStrain(i, j) / TotalStrain(i, j)
+            End If
+            
+            If INTTotalStrain(i, j) = 0 Then
+                INTDivRefRemainStrain(i, j) = 0
+            Else
+                INTDivRefRemainStrain(i, j) = INTRemainStrain(i, j) / INTTotalStrain(i, j)
+            End If
             Cells(rowCurr, RefRemainStrain_Col) = INTDivRefRemainStrain(i, j)    '相对残余变形
             
             rowCurr = rowCurr + 1
         Next
     Next
     
-
+    '注意！总应变、弹性应变、残余应变数值均为取整后计算的！
     '计算各个工况最小/大校验系数，最大相对残余应变
     For i = 1 To StrainNWCs
-        StrainStatPara(i, MaxElasticDeform_Index) = ElasticStrain(i, 1): StrainStatPara(i, MinCheckoutCoff_Index) = StrainCheckoutCoff(i, 1): StrainStatPara(i, MaxCheckoutCoff_Index) = StrainCheckoutCoff(i, 1)
-        StrainStatPara(i, MinRefRemainDeform_Index) = RefRemainStrain(i, 1): StrainStatPara(i, MaxRefRemainDeform_Index) = RefRemainStrain(i, 1)
+        StrainStatPara(i, MaxElasticDeform_Index) = INTElasticStrain(i, 1): StrainStatPara(i, MinCheckoutCoff_Index) = INTDivStrainCheckoutCoff(i, 1): StrainStatPara(i, MaxCheckoutCoff_Index) = INTDivStrainCheckoutCoff(i, 1)
+        StrainStatPara(i, MinRefRemainDeform_Index) = INTDivRefRemainStrain(i, 1): StrainStatPara(i, MaxRefRemainDeform_Index) = INTDivRefRemainStrain(i, 1)
         For j = 1 To StrainUbound(i)
-            If (ElasticStrain(i, j) > StrainStatPara(i, MaxElasticDeform_Index)) Then
-                StrainStatPara(i, 1) = ElasticStrain(i, j)
+            If (INTElasticStrain(i, j) > StrainStatPara(i, MaxElasticDeform_Index)) Then
+                StrainStatPara(i, 1) = INTElasticStrain(i, j)
             End If
-            If (StrainCheckoutCoff(i, j) < StrainStatPara(i, MinCheckoutCoff_Index)) Then
-                StrainStatPara(i, 2) = StrainCheckoutCoff(i, j)
+            If (INTDivStrainCheckoutCoff(i, j) < StrainStatPara(i, MinCheckoutCoff_Index)) Then
+                StrainStatPara(i, 2) = INTDivStrainCheckoutCoff(i, j)
             End If
-            If (StrainCheckoutCoff(i, j) > StrainStatPara(i, MaxCheckoutCoff_Index)) Then
-                StrainStatPara(i, 3) = StrainCheckoutCoff(i, j)
+            If (INTDivStrainCheckoutCoff(i, j) > StrainStatPara(i, MaxCheckoutCoff_Index)) Then
+                StrainStatPara(i, 3) = INTDivStrainCheckoutCoff(i, j)
             End If
-            If (RefRemainStrain(i, j) < StrainStatPara(i, MinRefRemainDeform_Index)) Then
-                StrainStatPara(i, 4) = RefRemainStrain(i, j)
+            If (INTDivRefRemainStrain(i, j) < StrainStatPara(i, MinRefRemainDeform_Index)) Then
+                StrainStatPara(i, 4) = INTDivRefRemainStrain(i, j)
             End If
-            If (RefRemainStrain(i, j) > StrainStatPara(i, MaxRefRemainDeform_Index)) Then
-                StrainStatPara(i, 5) = RefRemainStrain(i, j)
+            If (INTDivRefRemainStrain(i, j) > StrainStatPara(i, MaxRefRemainDeform_Index)) Then
+                StrainStatPara(i, 5) = INTDivRefRemainStrain(i, j)
             End If
         Next
 
@@ -289,7 +322,7 @@ Public Sub AutoStrainGraph()
         With ActiveChart
     
                 .SetSourceData Source:=Union(Range(Cells(curr, StrainNode_Name_Col), Cells(curr + StrainUbound(i) - 1, StrainNode_Name_Col)), _
-                Range(Cells(curr, ElasticStrain_Col), Cells(curr + StrainUbound(i) - 1, ElasticStrain_Col)), Range(Cells(curr, TheoryStrain_Col), Cells(curr + StrainUbound(i) - 1, TheoryStrain_Col)))
+                Range(Cells(curr, INTElasticStrain_Col), Cells(curr + StrainUbound(i) - 1, INTElasticStrain_Col)), Range(Cells(curr, TheoryStrain_Col), Cells(curr + StrainUbound(i) - 1, TheoryStrain_Col)))
                 
                 .SetElement (msoElementChartTitleNone)    '删除标题
                 .SeriesCollection(1).Name = "实测值"
