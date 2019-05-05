@@ -2134,11 +2134,11 @@ Private Sub DelCalcSpecifiedBookmarks(ByRef doc As Word.Document)
 End Sub
 
 '将以一个字符串数组中任意元素命名的书签删除
-Private Sub DelArrayBookmarks(ByRef doc As Word.Document, ByRef arr() As String)
+Private Sub DelArrayBookmarks(ByRef doc As Word.Document, ByRef Arr() As String)
     On Error Resume Next
     Dim i As Integer
-    For i = 1 To UBound(arr)
-        doc.Bookmarks(arr(i)).Delete
+    For i = 1 To UBound(Arr)
+        doc.Bookmarks(Arr(i)).Delete
     Next i
 End Sub
 
@@ -2152,13 +2152,13 @@ Private Sub DelAllBookmarks(ByRef doc As Word.Document)
 End Sub
 
 '将以一个字符串数组中任意元素命名的文档变量解除链接
-Private Sub UnlinkArrayFields(ByRef doc As Word.Document, ByRef arr() As String)
+Private Sub UnlinkArrayFields(ByRef doc As Word.Document, ByRef Arr() As String)
     On Error Resume Next
     Dim i As Integer
     Dim f As Field
     For Each f In doc.Fields
-        For i = 1 To UBound(arr)
-            If f.result.Text = arr(i) Then
+        For i = 1 To UBound(Arr)
+            If f.result.Text = Arr(i) Then
                 f.Unlink
                 Exit For
             End If
